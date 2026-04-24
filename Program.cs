@@ -3,128 +3,126 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-class Esemeny
+class Jel
 {
-    public string Kod { get; set; }
-    public int Perc { get; set; }
-    public int Tipus { get; set; }
+    public string Rendszam;
+    public int Ora;
+    public int Perc;
+    public int Sebesseg;
+
+    public Jel(string r, int o, int p, int s)
+    {
+        Rendszam = r;
+        Ora = o;
+        Perc = p;
+        Sebesseg = s;
+    }
+
+    public int Percben() => Ora * 60 + Perc;
 }
 
 class Program
 {
-    static int IdoPercre(string ido)
-    {
-        var p = ido.Split(':');
-        return int.Parse(p[0]) * 60 + int.Parse(p[1]);
-    }
-
-    static string PercIdo(int p)
-    {
-        return $"{p / 60:00}:{p % 60:00}";
-    }
-
     static void Main()
     {
         // 1. feladat – beolvasás
-        List<Esemeny> lista = new List<Esemeny>();
-
-        foreach (var sor in File.ReadAllLines("bedat.txt"))
+        List<Jel> adatok = new List<Jel>();
+        foreach (var sor in File.ReadAllLines("jeladas.txt"))
         {
-            var t = sor.Split();
-            lista.Add(new Esemeny
-            {
-                Kod = t[0],
-                Perc = IdoPercre(t[1]),
-                Tipus = int.Parse(t[2])
-            });
+            var t = sor.Split('\t');
+            adatok.Add(new Jel(t[0], int.Parse(t[1]), int.Parse(t[2]), int.Parse(t[3])));
         }
 
-        // 2. feladat – első belépés, utolsó kilépés
-        Console.WriteLine("2. feladat");
+        // 2. feladat
+        Console.WriteLine("2. feladat:");
+        var utolso = adatok.Last();
+        Console.WriteLine($"Az utolso jeladas idopontja {utolso.Ora}:{utolso.Perc}, a jarmu rendszama {utolso.Rendszam}");
 
-        var elso = lista.First(x => x.Tipus == 1);
-        var utolso = lista.Last(x => x.Tipus == 2);
+        // 3. feladat
+        Console.WriteLine("3. feladat:");
+        string elsoRsz = adatok[0].Rendszam;
+        Console.WriteLine($"Az elso jarmu: {elsoRsz}");
+        Console.Write("Jeladasainak idopontjai: ");
 
-        Console.WriteLine($"Az első tanuló {PercIdo(elso.Perc)}-kor lépett be a főkapun.");
-        Console.WriteLine($"Az utolsó tanuló {PercIdo(utolso.Perc)}-kor lépett ki a főkapun.");
+        var idopontok = adatok
+            .Where(a => a.Rendszam == elsoRsz)
+            .Select(a => $"{a.Ora}:{a.Perc}");
 
-        // 3. feladat – késők listája
-        using (var sw = new StreamWriter("kesok.txt"))
+        Console.WriteLine(string.Join(" ", idopontok));
+
+        // 4. feladat
+        Console.WriteLine("4. feladat:");
+        Console.Write("Kerem, adja meg az orat: ");
+        int bekertOra = int.Parse(Console.ReadLine());
+        Console.Write("Kerem, adja meg a percet: ");
+        int bekertPerc = int.Parse(Console.ReadLine());
+
+        int db = adatok.Count(a => a.Ora == bekertOra && a.Perc == bekertPerc);
+        Console.WriteLine($"A jeladasok szama: {db}");
+
+        // 5. feladat
+        Console.WriteLine("5. feladat:");
+        int maxSeb = adatok.Max(a => a.Sebesseg);
+        Console.WriteLine($"A legnagyobb sebesseg km/h: {maxSeb}");
+        Console.Write("A jarmuvek: ");
+
+        var maxRendszamok = adatok
+            .Where(a => a.Sebesseg == maxSeb)
+            .Select(a => a.Rendszam);
+
+        Console.WriteLine(string.Join(" ", maxRendszamok));
+
+        // 6. feladat
+        Console.WriteLine("6. feladat:");
+        Console.Write("Kerem, adja meg a rendszamot: ");
+        string keresett = Console.ReadLine().Trim();
+
+        var auto = adatok.Where(a => a.Rendszam == keresett).ToList();
+
+        if (auto.Count == 0)
         {
-            foreach (var e in lista.Where(x => x.Tipus == 1 &&
-                                               x.Perc > IdoPercre("07:50") &&
-                                               x.Perc <= IdoPercre("08:15")))
+            Console.WriteLine("Nincs ilyen rendszamu jarmu az adatok kozott.");
+        }
+        else
+        {
+            double tav = 0.0;
+            int elozoIdo = auto[0].Percben();
+            int elozoSeb = auto[0].Sebesseg;
+
+            foreach (var jel in auto)
             {
-                sw.WriteLine($"{PercIdo(e.Perc)} {e.Kod}");
+                int ido = jel.Percben();
+
+                if (jel != auto.First())
+                {
+                    int eltelt = ido - elozoIdo;
+                    tav += (eltelt / 60.0) * elozoSeb;
+                }
+
+                Console.WriteLine($"{jel.Ora}:{jel.Perc} {tav:F1} km");
+
+                elozoIdo = ido;
+                elozoSeb = jel.Sebesseg;
             }
         }
 
-        // 4. feladat – menzán ebédelők száma
-        Console.WriteLine("4. feladat");
-        int menza = lista.Count(x => x.Tipus == 3);
-        Console.WriteLine($"A menzán aznap {menza} tanuló ebédelt.");
+        // 7. feladat – ido.txt létrehozása
+        var jarmuvek = new Dictionary<string, (int o1, int p1, int o2, int p2)>();
 
-        // 5. feladat – könyvtári kölcsönzők
-        Console.WriteLine("5. feladat");
-
-        var kolcsonzok = lista.Where(x => x.Tipus == 4)
-                              .Select(x => x.Kod)
-                              .Distinct()
-                              .Count();
-
-        Console.WriteLine($"Aznap {kolcsonzok} tanuló kölcsönzött a könyvtárban.");
-
-        if (kolcsonzok > menza)
-            Console.WriteLine("Többen voltak, mint a menzán.");
-        else
-            Console.WriteLine("Nem voltak többen, mint a menzán.");
-
-        // 6. feladat – hátsó kapus eset (HashSet nélkül)
-        Console.WriteLine("6. feladat");
-        Console.WriteLine("Az érintett tanulók:");
-
-        List<string> kiment = new List<string>();
-        List<string> visszajott = new List<string>();
-
-        foreach (var e in lista)
+        foreach (var a in adatok)
         {
-            if (e.Perc >= IdoPercre("10:45") && e.Perc <= IdoPercre("10:50") && e.Tipus == 2)
-                if (!kiment.Contains(e.Kod))
-                    kiment.Add(e.Kod);
-
-            if (e.Perc > IdoPercre("10:50") && e.Perc <= IdoPercre("11:00") && e.Tipus == 1)
-                if (!visszajott.Contains(e.Kod))
-                    visszajott.Add(e.Kod);
+            if (!jarmuvek.ContainsKey(a.Rendszam))
+                jarmuvek[a.Rendszam] = (a.Ora, a.Perc, a.Ora, a.Perc);
+            else
+                jarmuvek[a.Rendszam] = (jarmuvek[a.Rendszam].o1, jarmuvek[a.Rendszam].p1, a.Ora, a.Perc);
         }
 
-        // közös elemek keresése lista-lista között
-        foreach (var kod in kiment)
+        using (var f = new StreamWriter("ido.txt"))
         {
-            if (visszajott.Contains(kod))
-                Console.Write(kod + " ");
-        }
-
-        Console.WriteLine();
-
-        // 7. feladat – egy tanuló bent tartózkodási ideje
-        Console.WriteLine("\n7. feladat");
-        Console.Write("Egy tanuló azonosítója=");
-        string keres = Console.ReadLine().Trim();
-
-        var tanulo = lista.Where(x => x.Kod == keres).ToList();
-
-        if (tanulo.Count == 0)
-        {
-            Console.WriteLine("Ilyen azonosítójú tanuló aznap nem volt az iskolában.");
-        }
-        else
-        {
-            int elsoBe = tanulo.First(x => x.Tipus == 1).Perc;
-            int utolsoKi = tanulo.Last(x => x.Tipus == 2).Perc;
-
-            int diff = utolsoKi - elsoBe;
-
-            Console.WriteLine($"A tanuló érkezése és távozása között {diff / 60} óra {diff % 60} perc telt el.");
+            foreach (var kv in jarmuvek)
+            {
+                f.WriteLine($"{kv.Key} {kv.Value.o1} {kv.Value.p1} {kv.Value.o2} {kv.Value.p2}");
+            }
         }
     }
 }
